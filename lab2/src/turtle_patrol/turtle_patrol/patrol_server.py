@@ -34,11 +34,11 @@ class Turtle1PatrolServer(Node):
         self._cmd_pub.publish(msg)
 
     # -------------------------------------------------------
-    # Service callback: update speeds
+    # Service callback: update speeds + positions
     # -------------------------------------------------------
     def patrol_callback(self, request: Patrol.Request, response: Patrol.Response):
         self.get_logger().info(
-            f"Patrol request: vel={request.vel:.2f}, omega={request.omega:.2f}"
+            f"Patrol request: vel={request.vel:.2f}, omega={request.omega:.2f}, x={request.x:.2f}, y={request.y:.2f}, theta={request.theta:.2f}"
         )
 
         # Update the speeds that the timer publishes

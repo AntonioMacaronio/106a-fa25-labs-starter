@@ -2,7 +2,7 @@
 
 import numpy as np
 import scipy as sp
-import kin_func_skeleton as kfs 
+import forward_kinematics.kin_func_skeleton as kfs 
 
 def ur7e_foward_kinematics_from_angles(joint_angles):
     """
@@ -39,7 +39,25 @@ def ur7e_foward_kinematics_from_angles(joint_angles):
     R = np.array([[-1., 0., 0.],
                   [0., 0., 1.], 
                   [0., 1., 0.]])
+    
+    xi = np.ndarray((6, 6))
 
+    for i in range(6):
+        qi = q0[:, i] # (3, )
+        wi = w0[:, i] # (3, )
+        vi = np.cross(qi, wi) # (3, )shoulder_link
+
+        xi[:3, i] = vi
+        xi[3:, i] = wi
+
+    
+    g0 = np.zeros((4, 4))
+    g0[0:3, 0:3] = R
+    g0[3, 3] = 1
+    g0[:3, 3] = q0[:, 5]
+    
+
+    return kfs.prod_exp(xi, joint_angles) @ g0
     # YOUR CODE HERE (Task 1)
 
 
@@ -56,9 +74,24 @@ def ur7e_forward_kinematics_from_joint_state(joint_state):
     -------
     (4x4) np.ndarray: homogenous transformation matrix
     """
-    
+    joint_order = {
+        'shoulder_pan_joint': 0,
+        'shoulder_lift_joint': 1,
+        'elbow_joint': 2,
+        'wrist_1_joint': 3,
+        'wrist_2_joint': 4,
+        'wrist_3_joint': 5
+    }
+
     angles = np.zeros(6)
     # YOUR CODE HERE (Task 2)
-    
+    names = joint_state.name
+    position = np.array(joint_state.position)
+    for i in range(6):
+        name = names[i]
+        angles[joint_order[name]] = position[i]
+
+    return ur7e_foward_kinematics_from_angles(joint_angles = angles)
+
 
     # END YOUR CODE HERE

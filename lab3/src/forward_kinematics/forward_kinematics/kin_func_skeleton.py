@@ -105,6 +105,15 @@ def skew_3d(omega):
     """
 
     # YOUR CODE HERE
+    x, y, z = omega
+    omega_hat = np.array(
+        [
+        [0, -z, y],
+        [z, 0, -x],
+        [-y, x, 0]
+        ]
+    )
+    return omega_hat
 
 def rotation_3d(omega, theta):
     """
@@ -119,6 +128,10 @@ def rotation_3d(omega, theta):
     """
 
     # YOUR CODE HERE
+    omega_hat = skew_3d(omega)
+    mag_omega = np.linalg.norm(omega)
+    rotation_matrix = np.identity(3) + (omega_hat / mag_omega) * np.sin(mag_omega * theta) + (omega_hat @ omega_hat / (mag_omega ** 2)) * (1 - np.cos(mag_omega * theta))
+    return rotation_matrix
 
 def hat_3d(xi):
     """
@@ -132,6 +145,17 @@ def hat_3d(xi):
     """
 
     # YOUR CODE HERE
+    vx, vy, vz, ox, oy, oz = xi
+    xi_hat = np.array(
+        [
+            [0, -oz, oy, vx],
+            [oz, 0, -ox, vy],
+            [-oy, ox, 0, vz],
+            [0, 0, 0, 0]
+        ]
+    )
+    
+    return xi_hat
 
 def homog_3d(xi, theta):
     """
@@ -146,7 +170,25 @@ def homog_3d(xi, theta):
     """
 
     # YOUR CODE HERE
-
+    vx, vy, vz, ox, oy, oz = xi
+    omega = np.array([[ox, oy, oz]]).T
+    v = np.array([[vx, vy, vz]]).T
+    if (ox == 0 and oy == 0 and oz == 0):
+        g = np.array([
+            [1, 0, 0, vx * theta],
+            [0, 1, 0, vy * theta],
+            [0, 0, 1, vz * theta],
+            [0, 0, 0, 1]
+        ])
+    else:
+        omega_hat = skew_3d(omega = omega[: , 0])
+        rotation = rotation_3d(omega = omega[: , 0], theta = theta)
+        translation = (1 / np.linalg.norm(omega) ** 2) * ((np.identity(3) - rotation) @ (omega_hat @ v) + (omega @ omega.T) @ v * theta)
+        g = np.zeros((4, 4))
+        g[0:3,0:3] = rotation
+        g[0:3,3] = translation[:, 0]
+        g[3, 3] = 1
+    return g
 
 def prod_exp(xi, theta):
     """
@@ -162,6 +204,14 @@ def prod_exp(xi, theta):
     """
 
     # YOUR CODE HERE
+    agg = np.identity(4)
+    for i in range(len(theta)):
+        curr_xi, curr_theta = xi[:, i], theta[i]
+        res = homog_3d(xi = curr_xi, theta = curr_theta)
+        agg = agg @ res
+
+    return agg
+
 
 #---------------------------------TESTING CODE---------------------------------
 #-------------------------DO NOT MODIFY ANYTHING BELOW HERE--------------------

@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'joint_control'
+package_name = 'forward_kinematics'
 
 setup(
     name=package_name,
@@ -13,15 +13,15 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='ee106a-tah',
-    maintainer_email='danielmunicio360@gmail.com',
+    maintainer='ee106a-agt',
+    maintainer_email='kchilaka@berkeley.edu',
     description='TODO: Package description',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'keyboard_controller = joint_control.keyboard_controller:main',
-            'keyboard_controller_copy = joint_control.keyboard_controller_copy:main',
+            'jointstatelistener = forward_kinematics.foward_kinematics_node:main',
+            'echoclone = forward_kinematics.tf_echo:main',
         ],
     },
 )

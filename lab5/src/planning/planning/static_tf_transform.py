@@ -18,13 +18,24 @@ class ConstantTransformPublisher(Node):
             [ 0, 1, 0, -0.13],
             [ 0, 0, 0, 1.0]
         ])
+        # The [x,y,z,w] quaternions for this are [0, 0.7071068, 0.7071068, 0]
 
         # Create TransformStamped
         self.transform = TransformStamped()
         # ---------------------------
         # TODO: Fill out TransformStamped message
         # --------------------------
-
+        self.transform.header.frame_id = "ar_marker_8" # to find this frame, launch ros2_aruco and then add the tf transformation. Make sure aruco tag is visible!
+        self.transform.child_frame_id = "base_link"
+        
+        self.transform.transform.translation.x = 0.0
+        self.transform.transform.translation.y = 0.16
+        self.transform.transform.translation.z = -0.13
+        
+        self.transform.transform.rotation.x = 0.0
+        self.transform.transform.rotation.y = 0.7071068
+        self.transform.transform.rotation.z = 0.7071068
+        self.transform.transform.rotation.w = 0.0
 
         self.timer = self.create_timer(0.05, self.broadcast_tf)
 

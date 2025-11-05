@@ -45,9 +45,10 @@ class TablePlane(Node):
         marker.type = Marker.CUBE
         marker.action = Marker.ADD
 
-        center = np.array([0.0, 0.0, -self.d / self.c])
+        # center = np.array([0.0, 0.0, -self.d / self.c])
         normal = np.array([self.a, self.b, self.c])
         normal = normal / np.linalg.norm(normal)
+        center = -self.d * normal
         z_axis = np.array([0, 0, 1])
         rotation_vector = np.cross(z_axis, normal)
         angle = np.arccos(np.clip(np.dot(z_axis, normal), -1.0, 1.0))

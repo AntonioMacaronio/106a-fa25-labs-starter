@@ -45,25 +45,35 @@ class RealSensePCSubscriber(Node):
 
         points = np.array(points)
         # ------------------------
-        #TODO: Add your code here!
+        # TODO: Add your code here!
         # ------------------------
-
+        
 
         # Apply max distance filter
-
+        max_distance_mask = np.where(np.linalg.norm(points, axis = 1) <= 0.6)
+        print(max_distance_mask[0].shape)
+        points = points[max_distance_mask[0], :]
+        print(points.shape)
        
         # Apply other filtering relative to plane
-        filtered_points = []
+        below_plane_filter = np.where(self.a * points[:, 0] + self.b * points[:, 1] + self.c * points[:, 2] + self.d <= 0)
+        # the best seems to be 0.0, 1.0, 0.0, -0.06
+        filtered_points = points[below_plane_filter[0], :]
+        print(filtered_points.shape)
 
         # Compute position of the cube via remaining points
-        cube_x = 0.0
-        cube_y = 0.0
-        cube_z = 0.0
+        cube_x = np.mean(filtered_points[:, 0]).item()
+        cube_y = np.mean(filtered_points[:, 1]).item()
+        cube_z = np.mean(filtered_points[:, 2]).item()
 
         self.get_logger().info(f"Filtered points: {filtered_points.shape[0]}")
 
         cube_pose = PointStamped()
         # Fill in message
+        cube_pose.header = msg.header
+        cube_pose.point.x = cube_x
+        cube_pose.point.y = cube_y
+        cube_pose.point.z = cube_z
 
         self.cube_pose_pub.publish(cube_pose)
 

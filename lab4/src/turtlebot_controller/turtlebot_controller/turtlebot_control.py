@@ -61,8 +61,8 @@ def main(args=None):
         rclpy.shutdown()
         return
 
-    frame1 = sys.argv[1] # ar_marker_4
-    frame2 = sys.argv[2] # ar_marker_7
+    frame1 = sys.argv[1] # ar_marker_4 # turtle
+    frame2 = sys.argv[2] # ar_marker_7 # target
     print(frame1, frame2)
 
     node = TurtleBotController(frame1, frame2)

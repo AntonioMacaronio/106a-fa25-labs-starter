@@ -25,7 +25,7 @@ class OccupancyGrid2d(Node):
         self._initialized = False
 
         # TF buffer + listener
-        self._tf_buffer = tf2_ros.Buffer()
+        self._tf_buffer = tf2_ros.Buffer() # Stores the previous transforms
         self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, self)
 
         # Load parameters
@@ -57,29 +57,49 @@ class OccupancyGrid2d(Node):
         # -- self._y_min
         # -- self._y_max
         # -- self._y_res # The resolution in y. Note: This isn't a ROS parameter. What will you do instead?
+        self.declare_parameter("x/num", 25)
+        self.declare_parameter("x/min", -10.0)
+        self.declare_parameter("x/max", 10.0)
+        self._x_num = self.get_parameter("x/num").value
+        self._x_min = self.get_parameter("x/min").value
+        self._x_max = self.get_parameter("x/max").value
+        self._x_res = (self._x_max - self._x_min) / self._x_num
+
+        self.declare_parameter("y/num", 25)
+        self.declare_parameter("y/min", -10.0)
+        self.declare_parameter("y/max", 10.0)
+        self._y_num = self.get_parameter("y/num").value
+        self._y_min = self.get_parameter("y/min").value
+        self._y_max = self.get_parameter("y/max").value
+        self._y_res = (self._y_max - self._y_min) / self._y_num
+        
 
         self.declare_parameter("update/occupied", 0.7)
-        self._occupied_update = self.probability_to_logodds(
-            self.get_parameter("update/occupied").value)
+        self._occupied_update = self.get_parameter("update/occupied").value
         self.declare_parameter("update/occupied_threshold", 0.97)
-        self._occupied_threshold = self.probability_to_logodds(
-            self.get_parameter("update/occupied_threshold").value)
+        self._occupied_threshold = self.get_parameter("update/occupied_threshold").value
         self.declare_parameter("update/free", 0.3)
-        self._free_update = self.probability_to_logodds(
-            self.get_parameter("update/free").value)
+        self._free_update = self.get_parameter("update/free").value
         self.declare_parameter("update/free_threshold", 0.03)
-        self._free_threshold = self.probability_to_logodds(
-            self.get_parameter("update/free_threshold").value)
+        self._free_threshold = self.get_parameter("update/free_threshold").value
 
         # Topics.
         # TODO! You'll need to set values for class variables called:
         # -- self._sensor_topic
         # -- self._vis_topic
+        self.declare_parameter("topic/sensor", "/scan")
+        self._sensor_topic = self.get_parameter("topic/sensor").value
+        self.declare_parameter("topic/vis", "/vis/map")
+        self._vis_topic = self.get_parameter("topic/vis").value
 
         # Frames.
         # TODO! You'll need to set values for class variables called:
         # -- self._sensor_frame
         # -- self._fixed_frame
+        self.declare_parameter("frames/sensor", "base_link")
+        self._sensor_frame = self.get_parameter("frames/sensor").value
+        self.declare_parameter("frames/fixed", "odom")
+        self._fixed_frame = self.get_parameter("frames/fixed").value
 
         return True
 
@@ -98,7 +118,7 @@ class OccupancyGrid2d(Node):
         return True
 
     # Callback to process sensor measurements.
-    def sensor_callback(self, msg):
+    def sensor_callback(self, msg): # msg = LaserScan object
         if not self._initialized:
             self.get_logger().error("Node not initialized.")
             return
@@ -107,7 +127,8 @@ class OccupancyGrid2d(Node):
         # Get our current pose from TF.
         try:
             pose = self._tf_buffer.lookup_transform(
-                self._fixed_frame, self._sensor_frame, rclpy.time.Time())
+                self._fixed_frame, self._sensor_frame, rclpy.time.Time()) 
+            # pose = T_world_robot = T_fixed_sensor
         except Exception as e:
             # Writes an error message to the ROS log but does not raise an exception
             self.get_logger().error(f"TF lookup failed: {e}")
@@ -118,7 +139,7 @@ class OccupancyGrid2d(Node):
         # assuming that the turtlebot is on the ground plane.
         sensor_x = pose.transform.translation.x
         sensor_y = pose.transform.translation.y
-
+    
         qx = pose.transform.rotation.x
         qy = pose.transform.rotation.y
         qz = pose.transform.rotation.z
@@ -130,12 +151,17 @@ class OccupancyGrid2d(Node):
         if abs(roll) > 0.1 or abs(pitch) > 0.1:
             self.get_logger().warn("Robot roll/pitch too large.")
         # Loop over all ranges in the LaserScan.
+        """
+            The msg has a min and max angle, so the range is just the distance (how far away) 
+            that corresponds to each of the n evenly-spaced angles between min and max angle.
+        """
         for idx, r in enumerate(msg.ranges):
             if np.random.rand() > self._random_downsample or np.isnan(r):
                 continue
             
             # Get angle of this ray in fixed frame.
             # TODO!
+            angle = msg.angle_min + idx * msg.angle_increment + yaw
 
             if r > msg.range_max or r < msg.range_min:
                 continue
@@ -145,6 +171,32 @@ class OccupancyGrid2d(Node):
             # Only update each voxel once. 
             # The occupancy grid is stored in self._map
             # TODO!
+            
+            # first let's update the last voxel to be occupied
+            try:
+                last_voxel_r, last_voxel_c = self.point_to_voxel(sensor_x + r*np.cos(angle), sensor_y + r*np.sin(angle))
+                self._map[last_voxel_r, last_voxel_c] += self._occupied_update
+                self._map[last_voxel_r, last_voxel_c] = min(self._map[last_voxel_r, last_voxel_c], self._occupied_threshold)
+            
+                # This loop is finding every voxel that needs to be free-updated and adding that to a set()
+                voxels_to_be_free_updated = set((last_voxel_r, last_voxel_c)) # set of (x, y) tuples, we add last_voxel b/c we don't want it to be free_updated
+                for dist in np.arange(0, r, min(self._x_res, self._y_res) / 2): # dist along ray
+                    # break up dist into x and y components
+                    x_change, y_change = np.cos(angle) * dist, np.sin(angle) * dist
+                    raywalkpoint = (sensor_x + x_change, sensor_y + y_change) # tuple with position x and y 
+                    row, col = self.point_to_voxel(raywalkpoint[0], raywalkpoint[1])
+                    prior_voxel_prob = self.colormap(row, col)
+                    # Need to update voxels once
+                    # Need to have some logic that tells us whether we're on the destination cell
+                    if (row, col) not in voxels_to_be_free_updated:
+                        # print(self._free_update)
+                        # print(row, col, self._map[row, col])
+                        self._map[row, col] -= self._free_update
+                        self._map[row, col] = max(self._map[row, col], self._free_threshold)
+                        voxels_to_be_free_updated.add((row, col))
+            except:
+                continue
+            
         # Visualize.
         self.visualize()
 
@@ -154,6 +206,7 @@ class OccupancyGrid2d(Node):
         jj = int((y - self._y_min) / self._y_res)
 
         if ii < 0 or ii >= self._x_num or jj < 0 or jj >= self._y_num:
+            print(x, y, ii, jj)
             return None  # invalid voxel
         return ii, jj
 
@@ -171,6 +224,8 @@ class OccupancyGrid2d(Node):
 
     # Colormap to take log odds at a voxel to a RGBA color.
     def colormap(self, ii, jj):
+        if (ii == 0 and jj == 0) or (ii == 1 and jj == 0) or (ii == 0 and jj == 2):
+            return ColorRGBA(r=0.0, g=0.0, b=1.0, a=0.75)
         p = self.logodds_to_probability(self._map[ii, jj])
         return ColorRGBA(r=p, g=0.1, b=1.0 - p, a=0.75)
 

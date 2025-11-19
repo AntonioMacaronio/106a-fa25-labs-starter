@@ -34,6 +34,8 @@ class ImageSubscriber(Node):
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
         results = self.model(cv_image, verbose=False)
 
+        fx, fy, cx, cy = self.camera_intrinsics
+
         for result in results:
             if result.masks is not None:
                 masks = result.masks.data.cpu().numpy()
@@ -42,23 +44,32 @@ class ImageSubscriber(Node):
                 for i, mask in enumerate(masks):
 
                     # TODO: Get number of pixels in mask
-                    pixel_count = 0. 
+                    pixel_count = np.sum(mask)
 
-                    CONE_AREA = 0.0208227849
+                    CONE_AREA = 0.0208227849 # this was given to us
 
                     # TODO: Get depth of image 
-                    depth = 0.
+                    depth = np.sqrt(fx * fy * CONE_AREA / pixel_count) # Z, equation 10
 
                     self.get_logger().info(f'Cone {i+1}: depth={depth:.3f}m')
 
 
                     # TODO: Get u, and v of cone in image coordinates
-                    u, v = 0.
+                    rows, cols = np.where(mask == 1) # row and column indices of the mask
+                    n = len(rows)
+                    if (n % 2 == 1):
+                        center = n // 2 + 1
+                    else:
+                        center = n // 2
+                    u, v = rows[center], cols[center] # center of segmentation mask's nonzero pixel coordinates
 
                     # TODO: Find X , Y , Z of cone
-                    X = 0.
-                    Y = 0.
-                    Z = 0. 
+                    # used formulas from equations 1 and 2
+                    X = (u - cx) * depth / fx
+                    Y = (v - cy) * depth / fy
+                    Z = depth # Z = depth?
+                    print(u, v)
+                    print(Z)
 
                     # Convert to turtlebot frame
                     # There's no camera frame for the turtlebots, so we just do this instead 
@@ -85,6 +96,10 @@ class ImageSubscriber(Node):
         # -------------------------------------------
         self.get_logger().info("Recieved Camera Info")
         
+        # Extract fx, fy, cx, and cy from msg
+        k = msg.k 
+        fx, fy, cx, cy = k[0], k[4], k[2], k[5]
+        self.camera_intrinsics = (fx, fy, cx, cy)
 
 def main(args=None):
     rclpy.init(args=args)

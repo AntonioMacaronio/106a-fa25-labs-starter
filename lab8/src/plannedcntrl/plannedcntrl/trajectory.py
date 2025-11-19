@@ -59,7 +59,7 @@ def plan_curved_trajectory(target_position):
     # Keep trying until transform available
     while rclpy.ok():
         try:
-            trans = bonk ## TODO: Apply a lookup transform between our world frame and turtlebot frame
+            trans = tf_buffer.lookup_transform() ## TODO: Apply a lookup transform between our world frame and turtlebot frame
             break
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
             node.get_logger().warn('TF lookup failed, retrying...')

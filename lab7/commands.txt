@@ -1,0 +1,17 @@
+ros2 launch realsense2_camera rs_launch.py pointcloud.enable:=true rgb_camera.color_profile:=1920x1080x30
+
+rviz2
+
+ros2 run perception interactive_plane
+
+
+# WHEN YOU ACTUALLY NEED TO RUN FOR CHECKOFF:
+
+ros2 launch planning lab7_bringup.launch.py plane_a:=-0.06147328688122283 plane_b:=-0.9953010221510883 plane_c:=-0.07481250099427006 plane_d:=0.08822093730711938 ar_marker:=ar_marker_10
+
+# RESET THE ROBOT, MAKE SURE THE BLOCK IS IN THE FRAME
+ros2 run ur7e_utils enable_comms
+ros2 run ur7e_utils reset_state
+ros2 run ur7e_utils tuck
+
+ros2 run planning main

@@ -100,6 +100,15 @@ def generate_launch_description():
         output='screen',
     )
 
+    # IK Node
+    ik_node = Node(
+        package='planning',
+        executable='ik',
+        name='ik',
+        output='screen',
+    )
+
+
 
     # Static TF: base_link -> world
     # -------------------------------------------------
@@ -153,6 +162,8 @@ def generate_launch_description():
         aruco_launch,
         perception_node,
         planning_tf_node,
+        transform_cube_pose,
+        ik_node,
         static_base_world,
         moveit_launch,
         shutdown_on_any_exit

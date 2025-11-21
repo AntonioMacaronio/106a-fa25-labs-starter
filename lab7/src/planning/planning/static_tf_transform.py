@@ -27,17 +27,18 @@ class ConstantTransformPublisher(Node):
         # ---------------------------
         # TODO: Fill out TransformStamped message
         # --------------------------
-        self.transform.header.frame_id = "ar_marker_8"
+        self.transform.header.frame_id = marker
         self.transform.child_frame_id = "base_link"
 
         self.transform.transform.translation.x = 0.0
         self.transform.transform.translation.y = 0.16
         self.transform.transform.translation.z = -0.13
 
-        self.transform.transform.rotation.x = 0.0
-        self.transform.transform.rotation.y = 0.7071068 # sqrt(2) / 2
-        self.transform.transform.rotation.z = 0.7071068
-        self.transform.transform.rotation.w = 0.0
+        quats = R.from_matrix(G[:3, :3]).as_quat()
+        self.transform.transform.rotation.x = quats[0]
+        self.transform.transform.rotation.y = quats[1] # sqrt(2) / 2
+        self.transform.transform.rotation.z = quats[2]
+        self.transform.transform.rotation.w = quats[3]
 
         self.timer = self.create_timer(0.05, self.broadcast_tf)
 

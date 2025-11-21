@@ -31,7 +31,7 @@ import sys
 class IKPlanner(Node):
     def __init__(self):
         super().__init__('ik_planner')
-
+ # we wrote this
         # ---- Clients ----
         self.ik_client = self.create_client(GetPositionIK, '/compute_ik')
         self.plan_client = self.create_client(GetMotionPlan, '/plan_kinematic_path')
@@ -48,17 +48,26 @@ class IKPlanner(Node):
                    qx=0.0, qy=1.0, qz=0.0, qw=0.0): # Think about why the default quaternion is like this. Why is qy=1?
         pose = PoseStamped()
         pose.header.frame_id = 'base_link'
-        pose.pose = ... # TODO: There are multiple parts/lines to fill here!
+        # TODO: Our code There are multiple parts/lines to fill here!
+        pose.pose.position.x = x
+        pose.pose.position.y = y
+        pose.pose.position.z = z
+        pose.pose.orientation.x = qx
+        pose.pose.orientation.y = qy
+        pose.pose.orientation.z = qz
+        pose.pose.orientation.w = qw
 
         ik_req = GetPositionIK.Request()
         # TODO: Lookup the format for ik request and build ik_req by filling in necessary parameters. What is your end-effector link name?
         ik_req.ik_request.avoid_collisions = True
         ik_req.ik_request.timeout = Duration(sec=2)
         ik_req.ik_request.group_name = 'ur_manipulator'
-        ik_req.ik_request.ik_link_name = 'wrist_3_link'
 
-        # setting the joint state
-        ik_req.robot_state.joint_state = current_joint_state
+        # WE MADE THE BELOW CHANGES
+        ik_req.ik_request.ik_link_name = 'wrist_3_link'
+        ik_req.ik_request.robot_state.joint_state = current_joint_state
+        ik_req.ik_request.pose_stamped = pose
+
         
 
         future = self.ik_client.call_async(ik_req)

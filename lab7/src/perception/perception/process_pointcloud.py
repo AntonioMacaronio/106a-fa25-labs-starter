@@ -54,7 +54,7 @@ class RealSensePCSubscriber(Node):
         points = points[max_distance_mask[0], :]
        
         # Apply other filtering relative to plane
-        below_plane_filter = np.where(self.a * points[:, 0] + self.b * points[:, 1] + self.c * points[:, 2] + self.d <= 0)
+        below_plane_filter = np.where(self.a * points[:, 0] + self.b * points[:, 1] + self.c * points[:, 2] + self.d >= 0)
         # the best seems to be 0.0, 1.0, 0.0, -0.06
         filtered_points = points[below_plane_filter[0], :]
 

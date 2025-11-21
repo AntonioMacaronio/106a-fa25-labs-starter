@@ -2,6 +2,8 @@ import rclpy
 from rclpy.node import Node
 from tf2_ros import Buffer, TransformListener
 from geometry_msgs.msg import PointStamped 
+import numpy as np
+from scipy.spatial.transform import Rotation
 
 class TransformCubePose(Node):
     def __init__(self):
@@ -24,9 +26,9 @@ class TransformCubePose(Node):
 
     def cube_pose_callback(self, msg: PointStamped):
         if self.cube_pose is None:
-            self.cube_pose = self.transform_cube_pose(cube_pose)
+            self.cube_pose = self.transform_cube_pose(msg)
             self.get_logger().info('Received cube pose')
-        self.cube_pub.publish(self.cube_pose)
+        self.cube_pose_pub.publish(self.cube_pose)
 
     def transform_cube_pose(self, msg: PointStamped):
         """ 

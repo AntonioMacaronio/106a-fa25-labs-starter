@@ -25,7 +25,7 @@ class ConstantTransformPublisher(Node):
         # ---------------------------
         # TODO: Fill out TransformStamped message
         # --------------------------
-        self.transform.header.frame_id = "ar_marker_8" # to find this frame, launch ros2_aruco and then add the tf transformation. Make sure aruco tag is visible!
+        self.transform.header.frame_id = "ar_marker_6" # to find this frame, launch ros2_aruco and then add the tf transformation. Make sure aruco tag is visible!
         self.transform.child_frame_id = "base_link"
         
         self.transform.transform.translation.x = 0.0

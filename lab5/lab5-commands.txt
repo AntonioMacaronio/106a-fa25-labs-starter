@@ -1,6 +1,6 @@
 ros2 launch realsense2_camera rs_launch.py pointcloud.enable:=true rgb_camera.color_profile:=1920x1080x30
 
-rvis2
+rviz2
 
 ros2 run perception display_plane
 

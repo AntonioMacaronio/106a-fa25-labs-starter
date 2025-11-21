@@ -11,6 +11,7 @@ class UR7e_CubeGrasp(Node):
         super().__init__('cube_grasp')
 
         self.cube_sub = self.create_subscription(PointStamped, '/cube_pose', self.cube_callback, 1)
+        self.cube_pub = self.create_publisher(PointStamped, '/cube_pose2', 1)
 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -23,6 +24,7 @@ class UR7e_CubeGrasp(Node):
         if self.cube_pose is None:
             self.cube_pose = self.transform_cube_pose(cube_pose)
             self.get_logger().info('Received cube pose')
+        self.cube_pub.publish(self.cube_pose)
 
     def transform_cube_pose(self, msg: PointStamped):
         """ 

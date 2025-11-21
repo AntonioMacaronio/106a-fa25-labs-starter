@@ -37,10 +37,21 @@ class TurtleBotController(Node):
         while rclpy.ok():
             # TODO: Transform the waypoint from the odom/world frame into the robot's base_link frame 
             # before computing errors — you'll need this so x_err and yaw_err are in the robot's coordinate system.
+            try:
+                trans = tf_buffer.lookup_transform('odom', 'base_footprint', rclpy.time.Time()) ## TODO: Apply a lookup transform between our world frame and turtlebot frame
+                # trans = T_world_turtlebot
+                break
+            except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+                node.get_logger().warn('TF lookup failed, retrying...')
+                rclpy.spin_once(node, timeout_sec=0.1)
+            
+            # NOTE: USE do_transform_pose AND FIX THIS
+            waypoint_x_world, waypoint_y_world, waypoint_theta = waypoint # just parsing the waypoint variable
+            waypoint_baselink = np.array([waypoint_x_world - trans.transform.translation.x, waypoint_y_world -  trans.transform.translation.y])
 
             #TODO: Calculate x and yaw errors! 
-            x_err = 0.
-            yaw_err = 0.
+            x_err = waypoint_baselink[0]
+            yaw_err = TurtleBotController._quat_from_yawtrans.transform.rotation
 
             if abs(x_err) < 0.03 and abs(yaw_err) < 0.2:
                 self.get_logger().info("Waypoint reached, moving to next.")
@@ -52,7 +63,8 @@ class TurtleBotController(Node):
     # Callback when goal point is published
     # ------------------------------------------------------------------
     def planning_callback(self, msg: PointStamped):
-        trajectory = plan_curved_trajectory((msg.point.x, msg.point.y))
+        trajectory = plan_curved_trajectory((msg.point.x, msg.point.y)) 
+        # 'trajectory' is length=num_points list of length3 tuples (x, y, change_theta) in world coordinates
 
         for waypoint in trajectory:
             self.controller(waypoint)

@@ -1,0 +1,13 @@
+ros2 launch turtlebot3_bringup robot.launch.py
+
+ros2 launch usb_cam usb_cam.launch.py
+
+rviz2
+
+ros2 run turtlebot3_teleop teleop_keyboard
+
+source ~ee106a/venvs/lab8/bin/activate
+
+ros2 run perception cone_publisher
+
+python3 src/plannedcntrl/plannedcntrl/trajectory.py

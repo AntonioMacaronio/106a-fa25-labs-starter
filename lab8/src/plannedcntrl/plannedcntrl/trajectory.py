@@ -9,6 +9,9 @@ from geometry_msgs.msg import TransformStamped
 
 
 def plot_trajectory(waypoints):
+    """
+    waypoints: list of length2 tuples    
+    """
     x_vals = [p[0] for p in waypoints]
     y_vals = [p[1] for p in waypoints]
     plt.figure(figsize=(10, 6))
@@ -33,25 +36,40 @@ def bezier_curve(p0, p1, p2, p3, t):
 
 
 def generate_bezier_waypoints(x1, y1, theta1, x2, y2, theta2, offset=1.0, num_points=10):
-    """Generate (x, y, theta) waypoints along a smooth Bézier path."""
-    d1 = np.array([np.cos(theta1), np.sin(theta1)])
-    d2 = np.array([-np.cos(theta2), -np.sin(theta2)])
-    c1 = np.array([x1, y1]) + offset * d1
-    c2 = np.array([x2, y2]) + offset * d2
-    t_vals = np.linspace(0, 1, num_points)
-    pts = [bezier_curve(np.array([x1, y1]), c1, c2, np.array([x2, y2]), t) for t in t_vals]
+    """Generate (x, y, theta) waypoints along a smooth Bézier path.
+    Input:
+        1. (x1, y1): start of the curve
+        2. (x2, y2): end of the curve 
+        3. (theta1, theta2): used to define the contro
+    Output:
+        1. waypoints: length=num_points list of length3 tuples (x, y, change_theta)
+    """
+    d1 = np.array([np.cos(theta1), np.sin(theta1)])     # (2, )
+    d2 = np.array([-np.cos(theta2), -np.sin(theta2)])   # (2, )
+    c1 = np.array([x1, y1]) + offset * d1               # (2, )
+    c2 = np.array([x2, y2]) + offset * d2               # (2, )
+    t_vals = np.linspace(0, 1, num_points)              # (num_points)
+    pts = [bezier_curve(np.array([x1, y1]), c1, c2, np.array([x2, y2]), t) for t in t_vals] # length=num_points list of (2, ) nparrays
 
-    thetas = []
+    thetas = [] # list of scalars representing the change in angle between each discrete point on our curve.
+                # theta[i] = angle change from point[i] to point[i+1]
+                # theta[-1] = angle change from point[0] to point[1] (repeated first)
     for i in range(len(pts) - 1):
         dx = pts[i+1][0] - pts[i][0]
         dy = pts[i+1][1] - pts[i][1]
         thetas.append(np.arctan2(dy, dx))
     thetas.append(thetas[-1])
-    return [(pts[i][0], pts[i][1], thetas[i]) for i in range(len(pts))]
+    return [(pts[i][0], pts[i][1], thetas[i]) for i in range(len(pts))] # returns a length=num_points list of length3 tuples (x, y, change_theta)
 
 
 def plan_curved_trajectory(target_position):
-    """Plan a curved trajectory from current odom→base_footprint transform."""
+    """Plan a curved trajectory from current odom→base_footprint transform.
+    Input:
+        1. target_position: length2 tuple of the target position in the robot-frame's coordinates
+    
+    Output:
+        1. waypoints: length=num_points list of length3 tuples (x, y, change_theta)
+    """
     node = rclpy.create_node('turtlebot_controller')
     tf_buffer = tf2_ros.Buffer()
     tf_listener = tf2_ros.TransformListener(tf_buffer, node)
@@ -59,7 +77,8 @@ def plan_curved_trajectory(target_position):
     # Keep trying until transform available
     while rclpy.ok():
         try:
-            trans = tf_buffer.lookup_transform() ## TODO: Apply a lookup transform between our world frame and turtlebot frame
+            trans = tf_buffer.lookup_transform('odom', 'base_footprint', rclpy.time.Time()) ## TODO: Apply a lookup transform between our world frame and turtlebot frame
+            # trans = T_world_turtlebot
             break
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
             node.get_logger().warn('TF lookup failed, retrying...')
@@ -74,12 +93,14 @@ def plan_curved_trajectory(target_position):
     roll, pitch, yaw = euler.quat2euler([q.w, q.x, q.y, q.z])
 
     # Compute absolute target position in odom frame
-    x2 = 0. ## TODO: How would you get x2 from our target position? Remember this is relative to x1
-    y2 = 0. ## TODO: How would you get x2 from our target position? Remember this is relative to x1
+    #x2 = target_position[0] - x1 ## TODO: How would you get x2 from our target position? Remember this is relative to x1
+    #y2 = target_position[1] - y1 ## TODO: How would you get x2 from our target position? Remember this is relative to x1
+    x2 = target_position[0] + x1
+    y2 = target_position[1] + y1
 
     # Generate Bézier waypoints and visualize
-    waypoints = generate_bezier_waypoints(x1, y1, yaw, x2, y2, yaw, offset=0.2, num_points=10)
-    plot_trajectory(waypoints)
+    waypoints = generate_bezier_waypoints(x1, y1, yaw, x2, y2, yaw, offset=0.2, num_points=10) # length=num_points list of length3 tuples (x, y, change_theta)
+    # plot_trajectory(waypoints)
 
     node.destroy_node()
     return waypoints
@@ -95,7 +116,7 @@ def main(args=None):
     plot_trajectory(waypoints)
 
     # Example: with live TF
-    # plan_curved_trajectory((0.2, 0.2))
+    plan_curved_trajectory((0.2, 0.2))
 
     rclpy.shutdown()
 

@@ -54,6 +54,10 @@ class IKPlanner(Node):
         ik_req.ik_request.avoid_collisions = True
         ik_req.ik_request.timeout = Duration(sec=2)
         ik_req.ik_request.group_name = 'ur_manipulator'
+        ik_req.ik_request.ik_link_name = 'wrist_3_link'
+
+        # setting the joint state
+        ik_req.robot_state.joint_state = current_joint_state
         
 
         future = self.ik_client.call_async(ik_req)

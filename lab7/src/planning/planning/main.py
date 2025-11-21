@@ -99,7 +99,7 @@ class UR7e_CubeGrasp(Node):
         next_job = self.job_queue.pop(0)
 
         if isinstance(next_job, JointState):
-
+/compute_ik
             traj = self.ik_planner.plan_to_joints(next_job)
             if traj is None:
                 self.get_logger().error("Failed to plan to position")

@@ -92,6 +92,15 @@ def generate_launch_description():
         }]
     )
 
+    # Transform Cube Pose Node
+    transform_cube_pose = Node(
+        package='planning',
+        executable='transform_cube_pose',
+        name='transform_cube_pose',
+        output='screen',
+    )
+
+
     # Static TF: base_link -> world
     # -------------------------------------------------
     # This TF is static because the "world" frame does not move.

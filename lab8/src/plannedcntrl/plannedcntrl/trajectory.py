@@ -40,7 +40,7 @@ def generate_bezier_waypoints(x1, y1, theta1, x2, y2, theta2, offset=1.0, num_po
     Input:
         1. (x1, y1): start of the curve
         2. (x2, y2): end of the curve 
-        3. (theta1, theta2): used to define the contro
+        3. (theta1, theta2): used to define the control points
     Output:
         1. waypoints: length=num_points list of length3 tuples (x, y, change_theta)
     """
@@ -95,12 +95,12 @@ def plan_curved_trajectory(target_position):
     # Compute absolute target position in odom frame
     #x2 = target_position[0] - x1 ## TODO: How would you get x2 from our target position? Remember this is relative to x1
     #y2 = target_position[1] - y1 ## TODO: How would you get x2 from our target position? Remember this is relative to x1
-    x2 = target_position[0] + x1
-    y2 = target_position[1] + y1
+    x2 = x1 + target_position[0] * np.cos(yaw) - target_position[1] * np.sin(yaw)
+    y2 = y1 + target_position[0] * np.sin(yaw) + target_position[1] * np.cos(yaw)
 
     # Generate Bézier waypoints and visualize
     waypoints = generate_bezier_waypoints(x1, y1, yaw, x2, y2, yaw, offset=0.2, num_points=10) # length=num_points list of length3 tuples (x, y, change_theta)
-    # plot_trajectory(waypoints)
+    #plot_trajectory(waypoints) # I sometimes comment where I 
 
     node.destroy_node()
     return waypoints

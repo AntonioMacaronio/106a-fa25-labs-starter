@@ -81,7 +81,7 @@ class ImageSubscriber(Node):
 
                     point_cam = PointStamped()
                     point_cam.header.stamp = msg.header.stamp
-                    point_cam.header.frame_id = 'base_link'
+                    point_cam.header.frame_id = 'base_footprint'
                     point_cam.point.x = goal_point[0]
                     point_cam.point.y = goal_point[1]
                     point_cam.point.z = goal_point[2]

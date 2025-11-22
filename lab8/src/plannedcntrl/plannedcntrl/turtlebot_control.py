@@ -34,17 +34,17 @@ class TurtleBotController(Node):
     # Main waypoint controller
     # ------------------------------------------------------------------
     def controller(self, waypoint):
-        x_i_err, x_d_err, yaw_r_err, yaw_d_err = 0, 0, 0 ,0
+        x_i_err, x_d_err, y_i_err, y_d_err = 0, 0, 0 ,0
         prev_x_dest_robotframe, prev_y_dest_robotframe = None, None # note: dest = destination (our cone coords)
 
         while rclpy.ok():
+            print("STARTING WHILE LOOP")
             rclpy.spin_once(self, timeout_sec=0.1)
             # TODO: Transform the waypoint from the odom/world frame into the robot's base_link frame 
             # before computing errors — you'll need this so x_err and yaw_err are in the robot's coordinate system.
             try:
-                trans = self.tf_buffer.lookup_transform('base_link', 'odom', rclpy.time.Time()).transform ## TODO: Apply a lookup transform between our world frame and turtlebot frame
+                trans = self.tf_buffer.lookup_transform('base_footprint', 'odom', rclpy.time.Time()).transform ## TODO: Apply a lookup transform between our world frame and turtlebot frame
                 # trans = T_world_turtlebot
-                break
             except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
                 node.get_logger().warn('TF lookup failed, retrying...')
                 rclpy.spin_once(node, timeout_sec=0.1)
@@ -62,18 +62,22 @@ class TurtleBotController(Node):
                 self.get_logger().info("Waypoint reached, moving to next.")
                 return
             
-            if prev_x_err is not None and prev_yaw_err is not None:
+            if prev_x_dest_robotframe is not None and prev_y_dest_robotframe is not None:
                 x_diff = x_dest_robotframe - prev_x_dest_robotframe
                 y_diff = y_dest_robotframe - prev_x_dest_robotframe
 
-            x_i_err += x_diff
-            y_i_err += y_diff
+            x_i_err += x_dest_robotframe
+            y_i_err += y_dest_robotframe
 
             control_cmd = Twist()
-            control_cmd.linear.x = self.Kp[0, 0] * x_dest_robotframe + self.Ki[0, 0] * x_i_err + self.Kd[0, 0] * x_diff
-            control_cmd.angular.z = self.Kp[1, 1] * y_dest_robotframe + self.Ki[1, 1] * yaw_i_err + self.Kd[1,1] * yaw_d_err
+            # print(self.Kp[0, 0] * x_dest_robotframe + self.Ki[0, 0] * x_i_err + self.Kd[0, 0] * x_d_err)
+            # print(self.Kp[1, 1] * y_dest_robotframe + self.Ki[1, 1] * y_i_err + self.Kd[1,1] * y_d_err)
+            
+            print()
+            control_cmd.linear.x = self.Kp[0, 0] * x_dest_robotframe + self.Ki[0, 0] * x_i_err + self.Kd[0, 0] * x_d_err
+            control_cmd.angular.z = self.Kp[1, 1] * y_dest_robotframe + self.Ki[1, 1] * y_i_err + self.Kd[1,1] * y_d_err
             self.pub.publish(control_cmd)
-
+            print(control_cmd)
             prev_x_dest_robotframe = x_dest_robotframe
             prev_y_dest_robotframe = y_dest_robotframe
 
@@ -87,6 +91,7 @@ class TurtleBotController(Node):
         # 'trajectory' is length=num_points list of length3 tuples (x, y, change_theta) in world coordinates
 
         for waypoint in trajectory:
+            print("STARTING HERE")
             self.controller(waypoint)
         control_cmd = Twist()
         self.pub.publish(control_cmd)

@@ -100,7 +100,7 @@ def plan_curved_trajectory(target_position):
 
     # Generate Bézier waypoints and visualize
     waypoints = generate_bezier_waypoints(x1, y1, yaw, x2, y2, yaw, offset=0.2, num_points=10) # length=num_points list of length3 tuples (x, y, change_theta)
-    #plot_trajectory(waypoints) # I sometimes comment where I 
+    plot_trajectory(waypoints) # I sometimes comment where I 
 
     node.destroy_node()
     return waypoints

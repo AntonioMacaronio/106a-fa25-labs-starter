@@ -21,9 +21,14 @@ class TurtleBotController(Node):
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
 
         # Controller gains
-        self.Kp = np.diag([5.0, 0.5])
+        self.Kp = np.diag([.8, 0.1])
+        self.Kd = np.diag([-0.01, -0.01])
         self.Ki = np.diag([0.0, 0.0])
-        self.Kd = np.diag([-0.5, -0.07])
+
+        self.error_integral = np.array([0.0,
+                                        0.0])
+        self.prev_error = np.array([0.0,
+                                    0.0])
 
         # Subscriber
         self.create_subscription(PointStamped, '/goal_point', self.planning_callback, 10)
@@ -32,54 +37,72 @@ class TurtleBotController(Node):
 
     # ------------------------------------------------------------------
     # Main waypoint controller
-    # ------------------------------------------------------------------
+    # ----------------, axis=1--------------------------------------------------
     def controller(self, waypoint):
-        x_i_err, x_d_err, y_i_err, y_d_err = 0, 0, 0 ,0
-        prev_x_dest_robotframe, prev_y_dest_robotframe = None, None # note: dest = destination (our cone coords)
-
         while rclpy.ok():
-            print("STARTING WHILE LOOP")
             rclpy.spin_once(self, timeout_sec=0.1)
-            # TODO: Transform the waypoint from the odom/world frame into the robot's base_link frame 
+            # TODO: Transform the waypoint from the odo8m/world frame into the robot's base_link frame 
             # before computing errors — you'll need this so x_err and yaw_err are in the robot's coordinate system.
+            # waypoint_stamped = PointStamped()
+            # waypoint_stamped.header.frame_id = 'odom'
+            # waypoint_stamped.point.x = waypoint[0]
+            # waypoint_stamped.point.y = waypoint[1]
+            # waypoint_stamped.point.z = 0.0
             try:
-                trans = self.tf_buffer.lookup_transform('base_footprint', 'odom', rclpy.time.Time()).transform ## TODO: Apply a lookup transform between our world frame and turtlebot frame
-                # trans = T_world_turtlebot
-            except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-                node.get_logger().warn('TF lookup failed, retrying...')
-                rclpy.spin_once(node, timeout_sec=0.1)
-            
-            x1 = trans.translation.x
-            y1 = trans.translation.y
-            q = trans.rotation
-            yaw = euler.quat2euler([q.w, q.x, q.y, q.z])[2]
-            
-            # TODO: Calculate x and yaw errors! # yaw error = y coordinate of waypoint
-            x_dest_robotframe = x1 + waypoint[0] * np.cos(yaw) - waypoint[1] * np.sin(yaw)
-            y_dest_robotframe = y1 + waypoint[0] * np.sin(yaw) + waypoint[1] * np.cos(yaw)
+                trans = self.tf_buffer.lookup_transform('base_link', 'odom', rclpy.time.Time())
+            except:
+                self.get_logger().warn('TF lookup failed, retreading - yaying...')
+                time.sleep(0.1)
+                continue
 
-            if abs(x_dest_robotframe) < 0.03 and abs(y_dest_robotframe) < 0.2:
+            print(f"waypoint: x={waypoint[0]:.2f}, y={waypoint[1]:.2f}, yaw={waypoint[2]:.2f}")
+            
+            x_goal, y_goal, yaw_goal = waypoint[0], waypoint[1], waypoint[2]
+            goal_target = PoseStamped()
+            goal_target.header.frame_id = 'odom'
+            goal_target.pose.position.x = x_goal
+            goal_target.pose.position.y = y_goal
+            goal_target.pose.position.z = 0.08
+
+            qx, qy, qz, qw = self._quat_from_yaw(yaw_goal)
+            goal_target.pose.orientation.x = qx
+            goal_target.pose.orientation.y = qy
+            goal_target.pose.orientation.z = qz
+            goal_target.pose.orientation.w = qw
+
+            # transform the goal_target to robot's base_link frame
+            goal_base = do_transform_pose(goal_target.pose, trans)
+
+            print(f"Transformed Goal in base_link frame: x={goal_base.position.x:.2f}, y={goal_base.position.y:.2f}")
+
+            x_err = goal_base.position.x
+            y_err = goal_base.position.y
+            q = goal_base.orientation
+            _, _, yaw_err = euler.quat2euler([q.w, q.x, q.y, q.z])
+
+            if abs(x_err) < 0.03 and abs(yaw_err) < 0.2:
                 self.get_logger().info("Waypoint reached, moving to next.")
                 return
-            
-            if prev_x_dest_robotframe is not None and prev_y_dest_robotframe is not None:
-                x_diff = x_dest_robotframe - prev_x_dest_robotframe
-                y_diff = y_dest_robotframe - prev_x_dest_robotframe
 
-            x_i_err += x_dest_robotframe
-            y_i_err += y_dest_robotframe
+            print(f"Errors: x_err={x_err:.2f}, y_err={y_err:.2f}, yaw_err={yaw_err:.2f}")
 
-            control_cmd = Twist()
-            # print(self.Kp[0, 0] * x_dest_robotframe + self.Ki[0, 0] * x_i_err + self.Kd[0, 0] * x_d_err)
-            # print(self.Kp[1, 1] * y_dest_robotframe + self.Ki[1, 1] * y_i_err + self.Kd[1,1] * y_d_err)
+            error = np.array([x_err,
+                              y_err])
+            self.error_integral = self.error_integral + error
+            error_diff = error - self.prev_error
+            self.prev_error = error
+
+            response = np.dot(self.Kp, error) + np.dot(self.Ki, self.error_integral) + np.dot(self.Kd, error_diff)
             
-            print()
-            control_cmd.linear.x = self.Kp[0, 0] * x_dest_robotframe + self.Ki[0, 0] * x_i_err + self.Kd[0, 0] * x_d_err
-            control_cmd.angular.z = self.Kp[1, 1] * y_dest_robotframe + self.Ki[1, 1] * y_i_err + self.Kd[1,1] * y_d_err
-            self.pub.publish(control_cmd)
-            print(control_cmd)
-            prev_x_dest_robotframe = x_dest_robotframe
-            prev_y_dest_robotframe = y_dest_robotframe
+            print(f"Controller response: v={response[0]:.2f}, w={response[1]:.2f}")
+
+            v = response[0]
+            w = response[1]
+
+            cmd = Twist()
+            cmd.linear.x = float(v)
+            cmd.angular.z = float(w)
+            self.pub.publish(cmd)   
 
             time.sleep(0.1)
 
@@ -87,14 +110,16 @@ class TurtleBotController(Node):
     # Callback when goal point is published
     # ------------------------------------------------------------------
     def planning_callback(self, msg: PointStamped):
-        trajectory = plan_curved_trajectory((msg.point.x, msg.point.y)) 
-        # 'trajectory' is length=num_points list of length3 tuples (x, y, change_theta) in world coordinates
+        trajectory = plan_curved_trajectory((msg.point.x, msg.point.y))
 
         for waypoint in trajectory:
-            print("STARTING HERE")
             self.controller(waypoint)
-        control_cmd = Twist()
-        self.pub.publish(control_cmd)
+        
+        print("Reached goal point. Stopping robot.")
+        cmd = Twist()
+        cmd.linear.x = float(0)
+        cmd.angular.z = float(0)
+        self.pub.publish(cmd)   
 
     # ------------------------------------------------------------------
     # Utility
